@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProjectAxis | Master Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        :root {
+            --sidebar-bg: #0B1121;
+            --main-bg: #F0F4F8;
+            --card-bg: #FFFFFF;
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --danger: #EF4444;
+            --success: #10B981;
+            --warning: #F59E0B;
+            --text-dark: #0F172A;
+            --text-muted: #64748B;
+            --border: #E2E8F0;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--main-bg); display: flex; min-height: 100vh; color: var(--text-dark); overflow-x: hidden; }
+
+        /* --- LOGIN OVERLAY --- */
+        .login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #0B1121 0%, #1e293b 100%); z-index: 9999;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        .login-card {
+            width: 100%; max-width: 420px; text-align: center;
+            background: var(--card-bg); padding: 50px 40px; border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar { width: 280px; background-color: var(--sidebar-bg); color: white; display: flex; flex-direction: column; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); position: fixed; height: 100vh; z-index: 1000; left: 0; }
+        .brand { padding: 30px 24px; font-size: 1.6rem; font-weight: 800; display: flex; align-items: center; gap: 12px; color: white; letter-spacing: -0.5px; }
+        .brand i { color: #3B82F6; font-size: 2rem; }
+        .nav-menu { padding: 20px; display: flex; flex-direction: column; height: 100%; }
+        .nav-item { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-radius: 12px; color: #94A3B8; cursor: pointer; transition: 0.3s; margin-bottom: 10px; font-weight: 600; font-size: 1.05rem; }
+        .nav-item:hover, .nav-item.active { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+        .nav-item i { font-size: 1.4rem; }
+
+        /* --- MAIN CONTENT --- */
+        .main-content { flex-grow: 1; margin-left: 280px; padding: 40px; transition: 0.4s; width: calc(100% - 280px); }
+        .top-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        .top-header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; color: var(--text-dark); }
+        .mobile-toggle { display: none; font-size: 1.8rem; cursor: pointer; color: var(--text-dark); background: white; padding: 8px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+
+        /* --- STATS CARDS --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 40px; }
+        .stat-card { background: var(--card-bg); padding: 24px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border); display: flex; align-items: center; gap: 20px; }
+        .stat-icon { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+        .stat-icon.blue { background: rgba(37, 99, 235, 0.1); color: var(--primary); }
+        .stat-icon.green { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .stat-details h4 { color: var(--text-muted); font-size: 0.9rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .stat-details h2 { font-size: 2rem; font-weight: 800; color: var(--text-dark); }
+
+        /* --- CARDS & FORMS --- */
+        .card { background: var(--card-bg); border-radius: 24px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid var(--border); animation: fadeIn 0.5s ease; }
+        .form-group { margin-bottom: 24px; text-align: left; }
+        .form-group label { display: block; margin-bottom: 10px; font-weight: 700; color: var(--text-dark); font-size: 0.95rem; }
+        .form-control { width: 100%; padding: 14px 18px; border-radius: 12px; border: 2px solid var(--border); font-size: 1rem; outline: none; transition: 0.3s; background: #F8FAFC; }
+        .form-control:focus { border-color: var(--primary); background: white; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+
+        /* --- BUTTONS --- */
+        .btn { padding: 12px 24px; border-radius: 12px; font-weight: 700; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 10px; transition: 0.3s; font-size: 1rem; }
+        .btn-primary { background-color: var(--primary); color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(-2px); box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3); }
+        .btn-danger { background-color: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .btn-danger:hover { background-color: var(--danger); color: white; }
+        
+        /* --- TABLES --- */
+        .table-responsive { overflow-x: auto; margin-top: 10px; border-radius: 12px; border: 1px solid var(--border); }
+        table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+        th { background-color: #F8FAFC; color: var(--text-muted); padding: 18px 24px; text-align: left; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
+        td { padding: 18px 24px; border-bottom: 1px solid var(--border); font-size: 1rem; font-weight: 500; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover { background-color: #F8FAFC; }
+        
+        .badge { padding: 8px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.1); color: #EF4444; }
+        .device-code { background: #F1F5F9; padding: 6px 12px; border-radius: 8px; color: #475569; font-family: monospace; font-size: 0.95rem; font-weight: 600; border: 1px solid #E2E8F0; }
+
+        /* --- SEARCH BAR --- */
+        .search-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 30px;
+        }
+        .search-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        .search-wrapper i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 1.2rem;
+        }
+        .search-input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            font-size: 0.95rem;
+            background: white;
+            transition: 0.2s;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+        }
+
+        /* --- NEW MANAGE BUTTON --- */
+        .btn-manage {
+            background: var(--primary);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .btn-manage:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        .btn-manage i {
+            font-size: 1rem;
+        }
+
+        /* --- GLOBAL DROPDOWN MENU --- */
+        .dropdown-menu {
+            position: fixed;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.02);
+            border: 1px solid var(--border);
+            min-width: 180px;
+            z-index: 10000;
+            overflow: hidden;
+            display: none;
+        }
+        .dropdown-menu.show {
+            display: block;
+        }
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: 0.2s;
+            background: white;
+            border: none;
+            width: 100%;
+            text-align: left;
+        }
+        .dropdown-item:hover {
+            background: #F8FAFC;
+        }
+        .dropdown-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .dropdown-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 4px 0;
+        }
+
+        /* --- TOAST - UPDATED WITH TRANSFORM --- */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #0F172A;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            border-left: 4px solid var(--primary);
+            transform: translateX(150%);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #toast.show {
+            transform: translateX(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.4s ease; }
+
+        /* --- MODAL (unchanged) --- */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-container {
+            background: var(--card-bg);
+            border-radius: 24px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+            animation: fadeInUp 0.3s ease;
+        }
+        .modal-header {
+            padding: 24px 28px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-header h3 {
+            font-weight: 800;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .modal-header h3 i {
+            color: var(--danger);
+        }
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: 0.2s;
+        }
+        .modal-close:hover {
+            color: var(--danger);
+        }
+        .modal-body {
+            padding: 28px;
+        }
+        .modal-footer {
+            padding: 20px 28px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        .reason-select {
+            margin-bottom: 20px;
+        }
+        .other-reason-input {
+            display: none;
+            margin-top: 12px;
+        }
+        .other-reason-input.show {
+            display: block;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- MOBILE RESPONSIVE --- */
+        @media (max-width: 992px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); box-shadow: 20px 0 50px rgba(0,0,0,0.5); }
+            .main-content { margin-left: 0; padding: 20px; width: 100%; }
+            .mobile-toggle { display: block; }
+            .top-header { margin-bottom: 25px; }
+            .stats-grid { grid-template-columns: 1fr; gap: 15px; }
+            .search-container { margin: 15px 20px; }
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .sidebar-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(3px); }
+        .sidebar-overlay.open { display: block; }
+    </style>
+</head>
+<body>
+
+    <div id="loginOverlay" class="login-overlay">
+        <div class="card login-card">
+            <div style="background: rgba(37,99,235,0.1); width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+                <i class="ph ph-shield-check" style="font-size: 2.8rem; color: var(--primary);"></i>
+            </div>
+            <h2 style="margin-bottom: 10px; color: var(--text-dark); font-weight: 800; font-size: 1.8rem;">Admin Portal</h2>
+            <p style="color: var(--text-muted); margin-bottom: 30px; font-weight: 500;">Enter master credentials to access.</p>
+            <form id="adminLoginForm">
+                <div class="form-group">
+                    <input type="email" id="adminEmail" class="form-control" placeholder="Master Email Address" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="adminPassword" class="form-control" placeholder="Master Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px; padding: 16px; font-size: 1.1rem;" id="adminLoginBtn">
+                    Secure Login <i class="ph ph-arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="brand">
+            <div style="background: var(--primary); padding: 8px; border-radius: 12px; display:flex;">
+                <i class="ph ph-lightning" style="color:white; font-size:1.5rem;"></i>
+            </div>
+            ProjectAxis
+        </div>
+        <div class="nav-menu">
+            <div class="nav-item active" onclick="switchTab('dashboard', this)">
+                <i class="ph ph-squares-four"></i> Dashboard
+            </div>
+            <div class="nav-item" onclick="switchTab('add-customer', this)">
+                <i class="ph ph-user-plus"></i> Add Customer
+            </div>
+            <div class="nav-item" onclick="logoutAdmin()" style="margin-top: auto; border-top: 1px solid rgba(255,255,255,0.05); border-radius: 0; padding-top: 20px;">
+                <i class="ph ph-sign-out" style="color: var(--danger);"></i> Secure Logout
+            </div>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="top-header">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <i class="ph ph-list mobile-toggle" onclick="toggleSidebar()"></i>
+                <h1 id="page-title">Dashboard</h1>
+            </div>
+            <button class="btn btn-primary" onclick="loadUsers()" id="refreshBtn">
+                <i class="ph ph-arrows-clockwise"></i> <span class="hide-mobile">Sync Data</span>
+            </button>
+        </div>
+
+        <div id="dashboard" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="ph ph-users"></i></div>
+                    <div class="stat-details">
+                        <h4>Total Customers</h4>
+                        <h2 id="totalUsersCount">0</h2>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="ph ph-lock-key"></i></div>
+                    <div class="stat-details">
+                        <h4>Locked Devices</h4>
+                        <h2 id="lockedDevicesCount">0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0; overflow: hidden;">
+                <div style="padding: 24px 30px; border-bottom: 1px solid var(--border); background: #F8FAFC;">
+                    <h3 style="color: var(--text-dark); font-weight: 800; font-size: 1.3rem;">Hardware Registry</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500; margin-top: 5px;">Manage access, unlock hardware, suspend accounts, or send password reset links.</p>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <div class="search-wrapper">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search by email..." onkeyup="filterUsers()">
+                    </div>
+                </div>
+
+                <div class="table-responsive" style="border: none; margin-top: 0; border-radius: 0;">
+                     <table>
+                        <thead>
+                             <tr>
+                                <th>Customer Email</th>
+                                <th>Hardware UUID</th>
+                                <th>Status</th>
+                                <th style="text-align: right;">Manage</th>
+                             </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                             <tr><td colspan="4" style="text-align: center; padding: 40px;"><i class="ph ph-spinner-gap ph-spin" style="font-size: 2rem; color: var(--primary);"></i><br><br>Fetching Registry...</td></tr>
+                        </tbody>
+                     </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="add-customer" class="tab-content">
+            <div class="card" style="max-width: 600px; margin: 0 auto; padding: 40px;">
+                <div style="margin-bottom: 35px; text-align: center;">
+                    <div style="background: rgba(16,185,129,0.1); width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+                        <i class="ph ph-user-plus" style="font-size: 2.2rem; color: var(--success);"></i>
+                    </div>
+                    <h3 style="color: var(--text-dark); font-weight: 800; font-size: 1.5rem;">Register New Shop</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; font-weight: 500; margin-top: 8px;">Create login credentials. Device ID will be captured automatically on their first login.</p>
+                </div>
+                
+                <form id="createCustomerForm">
+                    <div class="form-group">
+                        <label>Customer Email Address</label>
+                        <input type="email" id="newEmail" class="form-control" placeholder="e.g., shopname@gmail.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Create Secure Password</label>
+                        <input type="text" id="newPassword" class="form-control" placeholder="Minimum 6 characters required" required minlength="6">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 16px; font-size: 1.1rem; margin-top: 15px;" id="createBtn">
+                        <i class="ph ph-plus-circle"></i> Create Customer Account
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suspend Reason Modal -->
+    <div id="suspendModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3><i class="ph ph-warning-circle"></i> Suspend Account</h3>
+                <button class="modal-close" onclick="closeSuspendModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px; color: var(--text-muted);">Provide a reason for suspending this account. The user will see this reason when they attempt to log in.</p>
+                <div class="form-group reason-select">
+                    <label>Reason for Suspension</label>
+                    <select id="suspendReasonSelect" class="form-control">
+                        <option value="Payment Pending">Payment Pending</option>
+                        <option value="Policy Violation">Policy Violation</option>
+                        <option value="Spam Activity">Spam Activity</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div id="otherReasonGroup" class="other-reason-input">
+                    <input type="text" id="otherReasonText" class="form-control" placeholder="Please specify reason...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" style="background:#F1F5F9; color:#475569;" onclick="closeSuspendModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmSuspend()">Confirm Suspend</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Dropdown Menu (shared) -->
+    <div id="globalDropdownMenu" class="dropdown-menu"></div>
+
+    <div id="toast"><i class="ph ph-check-circle" style="font-size: 1.5rem; color: var(--success);"></i> <span id="toastMsg">Message</span></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            onAuthStateChanged, 
+            createUserWithEmailAndPassword, 
+            signOut,
+            sendPasswordResetEmail
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBZn7Lcd-LqQxxEAEJcGV0J3brlDo5wKhc",
+            authDomain: "projectaxis-by-subeesh.firebaseapp.com",
+            projectId: "projectaxis-by-subeesh",
+            storageBucket: "projectaxis-by-subeesh.firebasestorage.app",
+            messagingSenderId: "921761667803",
+            appId: "1:921761667803:web:a8b124df5375ea62954afe"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app); 
+        const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
+        const secondaryAuth = getAuth(secondaryApp);
+
+        // Global variables
+        let currentDropdownEmail = null;
+        let currentDropdownIsLinked = false;
+        let currentDropdownStatus = "active";
+        let currentSuspendEmail = null;
+
+        // --- UI Helpers ---
+        window.showToast = function(msg) {
+            document.getElementById("toastMsg").innerText = msg;
+            document.getElementById("toast").classList.add("show");
+            setTimeout(() => document.getElementById("toast").classList.remove("show"), 3500);
+        }
+
+        window.toggleSidebar = function() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        }
+
+        window.switchTab = function(tabId, element) {
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            document.getElementById('page-title').innerText = tabId === 'dashboard' ? 'Dashboard' : 'Add Customer';
+            document.getElementById('refreshBtn').style.display = tabId === 'dashboard' ? 'flex' : 'none';
+            
+            if(window.innerWidth <= 992) { window.toggleSidebar(); }
+            if(tabId === 'dashboard') loadUsers();
+        };
+
+        // --- Auth Observer (Layer 2: Persistent Check) ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // Strict admin email check
+                if (user.email !== 'admin@gmail.com') {
+                    // Unauthorized: sign out and keep login overlay visible
+                    await signOut(auth);
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    showToast("ACCESS DENIED: You are not authorized to access the Admin Portal.");
+                    return;
+                }
+                // Admin is signed in – hide login overlay and load dashboard
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadUsers();
+            } else {
+                document.getElementById('loginOverlay').style.display = 'flex';
+            }
+        });
+
+        // --- Login Form Handler (Layer 1: Immediate Restriction) ---
+        document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('adminLoginBtn');
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            
+            btn.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Authenticating...';
+            btn.disabled = true;
+            
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                // Strict admin email check after successful sign-in
+                if (user.email !== 'admin@gmail.com') {
+                    // Immediately sign out the unauthorized user
+                    await signOut(auth);
+                    showToast("ACCESS DENIED: Unauthorized Account.");
+                    btn.innerHTML = 'Secure Login <i class="ph ph-arrow-right"></i>';
+                    btn.disabled = false;
+                    return;
+                }
+                
+                // If admin, proceed (observer will handle UI)
+                showToast("Admin access granted.");
+                // No need to manually set loginOverlay – observer will hide it
+            } catch (error) {
+                let errorMsg = "Invalid Credentials.";
+                if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    errorMsg = "Invalid Credentials.";
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMsg = "Too many failed attempts. Please try again later.";
+                } else {
+                    errorMsg = error.message;
+                }
+                showToast(errorMsg);
+                btn.innerHTML = 'Secure Login <i class="ph ph-arrow-right"></i>';
+                btn.disabled = false;
+            }
+        });
+
+        window.logoutAdmin = () => {
+            if(confirm("Are you sure you want to logout?")) signOut(auth);
+        }
+
+        // --- Password Reset ---
+        window.resetPassword = async (email) => {
+            closeDropdown();
+            const confirmReset = confirm(`Are you sure you want to send a secure password reset link to ${email}?`);
+            if (!confirmReset) return;
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showToast(`Reset link sent to ${email} successfully!`);
+            } catch (error) {
+                console.error("Password reset error:", error);
+                let errorMsg = "Failed to send reset link. ";
+                if (error.code === 'auth/user-not-found') {
+                    errorMsg += "No account found with this email.";
+                } else {
+                    errorMsg += error.message;
+                }
+                alert(errorMsg);
+            }
+        };
+
+        // --- Suspend/Unsuspend ---
+        window.openSuspendModal = function(email) {
+            currentSuspendEmail = email;
+            document.getElementById('suspendModal').style.display = 'flex';
+            document.getElementById('suspendReasonSelect').value = 'Payment Pending';
+            document.getElementById('otherReasonGroup').classList.remove('show');
+            document.getElementById('otherReasonText').value = '';
+            closeDropdown();
+        };
+
+        window.closeSuspendModal = function() {
+            document.getElementById('suspendModal').style.display = 'none';
+            currentSuspendEmail = null;
+        };
+
+        const reasonSelect = document.getElementById('suspendReasonSelect');
+        const otherGroup = document.getElementById('otherReasonGroup');
+        reasonSelect.addEventListener('change', function() {
+            if (this.value === 'Other') {
+                otherGroup.classList.add('show');
+            } else {
+                otherGroup.classList.remove('show');
+            }
+        });
+
+        window.confirmSuspend = async function() {
+            if (!currentSuspendEmail) return;
+            let reason = reasonSelect.value;
+            if (reason === 'Other') {
+                const otherText = document.getElementById('otherReasonText').value.trim();
+                if (!otherText) {
+                    alert("Please specify a reason for suspension.");
+                    return;
+                }
+                reason = otherText;
+            }
+            try {
+                await updateDoc(doc(db, "users", currentSuspendEmail), {
+                    status: "suspended",
+                    suspendReason: reason
+                });
+                showToast(`Account ${currentSuspendEmail} suspended.`);
+                closeSuspendModal();
+                loadUsers();
+            } catch (error) {
+                alert("Error suspending account: " + error.message);
+            }
+        };
+
+        window.unsuspendUser = async function(email) {
+            closeDropdown();
+            const confirmReactivate = confirm(`Reactivate account for ${email}?`);
+            if (!confirmReactivate) return;
+            try {
+                await updateDoc(doc(db, "users", email), {
+                    status: "active",
+                    suspendReason: ""
+                });
+                showToast(`Account ${email} reactivated.`);
+                loadUsers();
+            } catch (error) {
+                alert("Error reactivating account: " + error.message);
+            }
+        };
+
+        // --- Unlock Device ---
+        window.resetDevice = async function(email) {
+            closeDropdown();
+            if(confirm(`⚠️ WARNING\n\nUnlock hardware for ${email}?\nThey will need to login again on a new machine.`)) {
+                try {
+                    await updateDoc(doc(db, "users", email), { deviceID: "" });
+                    showToast(`Hardware unlocked for ${email}`);
+                    loadUsers(); 
+                } catch (e) { alert("Error: " + e.message); }
+            }
+        }
+
+        // --- Live Search ---
+        window.filterUsers = function() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const rows = document.querySelectorAll('#userTableBody tr');
+            rows.forEach(row => {
+                const emailCell = row.cells[0];
+                if (emailCell) {
+                    const emailText = emailCell.textContent.toLowerCase();
+                    if (emailText.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
+        };
+
+        // --- Dropdown Functions (unchanged) ---
+        function closeDropdown() {
+            const dropdown = document.getElementById('globalDropdownMenu');
+            dropdown.classList.remove('show');
+            document.removeEventListener('click', outsideClickListener);
+            window.removeEventListener('scroll', closeDropdown);
+            currentDropdownEmail = null;
+        }
+
+        function outsideClickListener(event) {
+            const dropdown = document.getElementById('globalDropdownMenu');
+            const target = event.target;
+            if (!dropdown.contains(target) && !target.closest('.btn-manage')) {
+                closeDropdown();
+            }
+        }
+
+        window.openMenu = function(event, email, isLinked, status) {
+            event.stopPropagation();
+            closeDropdown();
+
+            currentDropdownEmail = email;
+            currentDropdownIsLinked = isLinked;
+            currentDropdownStatus = status;
+
+            const btn = event.currentTarget;
+            const rect = btn.getBoundingClientRect();
+            const dropdown = document.getElementById('globalDropdownMenu');
+
+            let menuHtml = `
+                <button class="dropdown-item ${!isLinked ? 'disabled' : ''}" onclick="if(${isLinked}) resetDevice('${email}')">
+                    <i class="ph ph-lock-key-open"></i> Unlock Device
+                </button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" onclick="resetPassword('${email}')">
+                    <i class="ph ph-key"></i> Reset Password
+                </button>
+                <div class="dropdown-divider"></div>
+            `;
+            if (status === 'suspended') {
+                menuHtml += `<button class="dropdown-item" onclick="unsuspendUser('${email}')">
+                                <i class="ph ph-check-circle"></i> Unsuspend Account
+                             </button>`;
+            } else {
+                menuHtml += `<button class="dropdown-item" onclick="openSuspendModal('${email}')">
+                                <i class="ph ph-warning-circle"></i> Suspend Account
+                             </button>`;
+            }
+
+            dropdown.innerHTML = menuHtml;
+
+            dropdown.style.visibility = 'hidden';
+            dropdown.classList.add('show');
+            const dropdownWidth = dropdown.offsetWidth;
+            const dropdownHeight = dropdown.offsetHeight;
+            dropdown.classList.remove('show');
+            dropdown.style.visibility = '';
+
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            let topPosition;
+            let isDropup = false;
+            if (spaceBelow >= dropdownHeight + 8 || spaceBelow >= spaceAbove) {
+                topPosition = rect.bottom + 8;
+                dropdown.classList.remove('is-dropup');
+            } else {
+                topPosition = rect.top - dropdownHeight - 8;
+                dropdown.classList.add('is-dropup');
+                isDropup = true;
+            }
+
+            let leftPosition = rect.right - dropdownWidth;
+            if (leftPosition < 8) leftPosition = 8;
+            if (leftPosition + dropdownWidth > window.innerWidth - 8) {
+                leftPosition = window.innerWidth - dropdownWidth - 8;
+            }
+
+            dropdown.style.left = leftPosition + 'px';
+            dropdown.style.top = topPosition + 'px';
+            dropdown.classList.add('show');
+
+            if (isDropup && topPosition < 0) {
+                dropdown.style.top = '8px';
+            }
+
+            document.addEventListener('click', outsideClickListener);
+            window.addEventListener('scroll', closeDropdown, { once: true });
+        };
+
+        // --- Load Users (unchanged) ---
+        window.loadUsers = async function() {
+            const tableBody = document.getElementById('userTableBody');
+            tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px;"><i class="ph ph-spinner-gap ph-spin" style="font-size: 2rem; color: var(--primary);"></i><br><br>Syncing Data...</td></tr>';
+            
+            try {
+                const querySnapshot = await getDocs(collection(db, "users"));
+                tableBody.innerHTML = "";
+                
+                let totalUsers = 0;
+                let lockedUsers = 0;
+
+                if (querySnapshot.empty) {
+                    tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 40px; color: var(--text-muted);">Registry empty. Add a customer to begin.</td></tr>';
+                    document.getElementById('totalUsersCount').innerText = "0";
+                    document.getElementById('lockedDevicesCount').innerText = "0";
+                    return;
+                }
+
+                querySnapshot.forEach((document) => {
+                    totalUsers++;
+                    const email = document.id; 
+                    const data = document.data();
+                    const deviceId = data.deviceID || "";
+                    const status = data.status || "active";
+                    const isLinked = deviceId !== "";
+                    
+                    if(isLinked && status === "active") lockedUsers++;
+
+                    let badgeHtml = '';
+                    if (status === "suspended") {
+                        badgeHtml = `<span class="badge badge-danger"><i class="ph ph-warning-circle"></i> Suspended</span>`;
+                    } else if (isLinked) {
+                        badgeHtml = `<span class="badge badge-success"><i class="ph ph-shield-check"></i> Locked</span>`;
+                    } else {
+                        badgeHtml = `<span class="badge badge-warning"><i class="ph ph-clock"></i> Pending Login</span>`;
+                    }
+
+                    const displayId = isLinked ? `<span class="device-code">${escapeHtml(deviceId)}</span>` : "—";
+                    
+                    tableBody.innerHTML += `
+                        <tr data-email="${escapeHtml(email)}" data-islinked="${isLinked}" data-status="${status}">
+                            <td>${escapeHtml(email)}</td>
+                            <td>${displayId}</td>
+                            <td>${badgeHtml}</td>
+                            <td style="text-align: right;">
+                                <button class="btn-manage" onclick="openMenu(event, '${escapeHtml(email)}', ${isLinked}, '${status}')">
+                                    Manage <i class="ph ph-caret-down"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                document.getElementById('totalUsersCount').innerText = totalUsers;
+                document.getElementById('lockedDevicesCount').innerText = lockedUsers;
+
+                if (document.getElementById('searchInput').value.trim() !== "") {
+                    filterUsers();
+                }
+            } catch (error) {
+                tableBody.innerHTML = `<tr><td colspan='4' style="color: red; text-align: center; padding: 20px;">Error: ${error.message}</td></tr>`;
+            }
+        }
+
+        function escapeHtml(str) {
+            if (!str) return "";
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // --- Add Customer (unchanged) ---
+        document.getElementById('createCustomerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('newEmail').value;
+            const password = document.getElementById('newPassword').value;
+            const btn = document.getElementById('createBtn');
+
+            btn.innerHTML = '<i class="ph ph-spinner-gap ph-spin"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                await createUserWithEmailAndPassword(secondaryAuth, email, password);
+                await setDoc(doc(db, "users", email), {
+                    deviceID: "", 
+                    createdAt: new Date().toISOString(),
+                    status: "active",
+                    suspendReason: ""
+                });
+                await signOut(secondaryAuth);
+                showToast("New customer registered successfully!");
+                document.getElementById('createCustomerForm').reset();
+                setTimeout(() => document.querySelector('.nav-item').click(), 1200);
+            } catch (error) {
+                alert("Error: " + error.message);
+            } finally {
+                btn.innerHTML = '<i class="ph ph-plus-circle"></i> Create Customer Account';
+                btn.disabled = false;
+            }
+        });
+
+        const tableContainer = document.querySelector('.table-responsive');
+        if (tableContainer) {
+            tableContainer.addEventListener('scroll', closeDropdown);
+        }
+    </script>
+</body>
+</html>
