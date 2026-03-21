@@ -191,7 +191,7 @@
             margin: 4px 0;
         }
 
-        /* --- TOAST - UPDATED WITH TRANSFORM --- */
+        /* --- TOAST --- */
         #toast {
             position: fixed;
             bottom: 30px;
@@ -222,7 +222,7 @@
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.4s ease; }
 
-        /* --- MODAL (unchanged) --- */
+        /* --- MODAL --- */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -296,6 +296,20 @@
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(30px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- READ-ONLY MODE INDICATOR --- */
+        .readonly-badge {
+            background: #F59E0B;
+            color: #0F172A;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-left: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
         }
 
         /* --- MOBILE RESPONSIVE --- */
@@ -403,19 +417,19 @@
                 </div>
 
                 <div class="table-responsive" style="border: none; margin-top: 0; border-radius: 0;">
-                     <table>
+                    <table>
                         <thead>
-                             <tr>
+                            <tr>
                                 <th>Customer Email</th>
                                 <th>Hardware UUID</th>
                                 <th>Status</th>
                                 <th style="text-align: right;">Manage</th>
-                             </tr>
+                            </tr>
                         </thead>
                         <tbody id="userTableBody">
-                             <tr><td colspan="4" style="text-align: center; padding: 40px;"><i class="ph ph-spinner-gap ph-spin" style="font-size: 2rem; color: var(--primary);"></i><br><br>Fetching Registry...</td></tr>
+                            <tr><td colspan="4" style="text-align: center; padding: 40px;"><i class="ph ph-spinner-gap ph-spin" style="font-size: 2rem; color: var(--primary);"></i><br><br>Fetching Registry...</td></tr>
                         </tbody>
-                     </table>
+                    </table>
                 </div>
             </div>
         </div>
@@ -514,6 +528,7 @@
         let currentDropdownIsLinked = false;
         let currentDropdownStatus = "active";
         let currentSuspendEmail = null;
+        let isAdmin = false;  // Flag to track admin status
 
         // --- UI Helpers ---
         window.showToast = function(msg) {
@@ -540,26 +555,57 @@
             if(tabId === 'dashboard') loadUsers();
         };
 
-        // --- Auth Observer (Layer 2: Persistent Check) ---
+        // --- Auth Observer with Read-Only Mode ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Strict admin email check
-                if (user.email !== 'admin@gmail.com') {
-                    // Unauthorized: sign out and keep login overlay visible
-                    await signOut(auth);
-                    document.getElementById('loginOverlay').style.display = 'flex';
-                    showToast("ACCESS DENIED: You are not authorized to access the Admin Portal.");
-                    return;
+                if (user.email === 'admin@gmail.com') {
+                    isAdmin = true;
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    // Enable all action buttons
+                    enableActionButtons(true);
+                    // Remove any read-only indicator if present
+                    const existingBadge = document.querySelector('.readonly-badge');
+                    if (existingBadge) existingBadge.remove();
+                    loadUsers();
+                } else {
+                    // Non-admin user: read-only mode
+                    isAdmin = false;
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    // Show alert as per requirement
+                    alert('Login Success! Access Denied: Read-only mode active.');
+                    // Disable all action buttons
+                    enableActionButtons(false);
+                    // Add a visual indicator in the top header
+                    const header = document.querySelector('.top-header h1');
+                    let badge = document.querySelector('.readonly-badge');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'readonly-badge';
+                        badge.innerHTML = '<i class="ph ph-eye-slash"></i> Read‑only Mode';
+                        header.parentElement.appendChild(badge);
+                    }
+                    loadUsers();  // Load data but without write capabilities
                 }
-                // Admin is signed in – hide login overlay and load dashboard
-                document.getElementById('loginOverlay').style.display = 'none';
-                loadUsers();
             } else {
+                isAdmin = false;
                 document.getElementById('loginOverlay').style.display = 'flex';
+                // Remove any read-only indicator if present
+                const badge = document.querySelector('.readonly-badge');
+                if (badge) badge.remove();
             }
         });
 
-        // --- Login Form Handler (Layer 1: Immediate Restriction) ---
+        // Helper to enable/disable all write-related buttons and form submissions
+        function enableActionButtons(enabled) {
+            // Create Customer button
+            const createBtn = document.getElementById('createBtn');
+            if (createBtn) createBtn.disabled = !enabled;
+            // Note: we don't disable the refresh button – it's read-only.
+            // For dynamic buttons inside the table, we'll handle in the loadUsers function (set onclick conditionally)
+            // We'll also set a flag that the openMenu will check before showing interactive items
+        }
+
+        // --- Login Form Handler (kept same but now we don't sign out) ---
         document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('adminLoginBtn');
@@ -570,22 +616,10 @@
             btn.disabled = true;
             
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                
-                // Strict admin email check after successful sign-in
-                if (user.email !== 'admin@gmail.com') {
-                    // Immediately sign out the unauthorized user
-                    await signOut(auth);
-                    showToast("ACCESS DENIED: Unauthorized Account.");
-                    btn.innerHTML = 'Secure Login <i class="ph ph-arrow-right"></i>';
-                    btn.disabled = false;
-                    return;
-                }
-                
-                // If admin, proceed (observer will handle UI)
-                showToast("Admin access granted.");
-                // No need to manually set loginOverlay – observer will hide it
+                await signInWithEmailAndPassword(auth, email, password);
+                // No need to check here – observer will handle the mode
+                // Observer will show appropriate alert/mode
+                // We'll keep the button state
             } catch (error) {
                 let errorMsg = "Invalid Credentials.";
                 if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -596,6 +630,7 @@
                     errorMsg = error.message;
                 }
                 showToast(errorMsg);
+            } finally {
                 btn.innerHTML = 'Secure Login <i class="ph ph-arrow-right"></i>';
                 btn.disabled = false;
             }
@@ -605,8 +640,12 @@
             if(confirm("Are you sure you want to logout?")) signOut(auth);
         }
 
-        // --- Password Reset ---
+        // --- All write actions now check isAdmin flag ---
         window.resetPassword = async (email) => {
+            if (!isAdmin) {
+                alert("Read-only mode: Password reset is disabled.");
+                return;
+            }
             closeDropdown();
             const confirmReset = confirm(`Are you sure you want to send a secure password reset link to ${email}?`);
             if (!confirmReset) return;
@@ -625,8 +664,11 @@
             }
         };
 
-        // --- Suspend/Unsuspend ---
         window.openSuspendModal = function(email) {
+            if (!isAdmin) {
+                alert("Read-only mode: Account suspension is disabled.");
+                return;
+            }
             currentSuspendEmail = email;
             document.getElementById('suspendModal').style.display = 'flex';
             document.getElementById('suspendReasonSelect').value = 'Payment Pending';
@@ -651,6 +693,10 @@
         });
 
         window.confirmSuspend = async function() {
+            if (!isAdmin) {
+                alert("Read-only mode: Account suspension is disabled.");
+                return;
+            }
             if (!currentSuspendEmail) return;
             let reason = reasonSelect.value;
             if (reason === 'Other') {
@@ -675,6 +721,10 @@
         };
 
         window.unsuspendUser = async function(email) {
+            if (!isAdmin) {
+                alert("Read-only mode: Account reactivation is disabled.");
+                return;
+            }
             closeDropdown();
             const confirmReactivate = confirm(`Reactivate account for ${email}?`);
             if (!confirmReactivate) return;
@@ -690,8 +740,11 @@
             }
         };
 
-        // --- Unlock Device ---
         window.resetDevice = async function(email) {
+            if (!isAdmin) {
+                alert("Read-only mode: Unlocking hardware is disabled.");
+                return;
+            }
             closeDropdown();
             if(confirm(`⚠️ WARNING\n\nUnlock hardware for ${email}?\nThey will need to login again on a new machine.`)) {
                 try {
@@ -702,7 +755,7 @@
             }
         }
 
-        // --- Live Search ---
+        // --- Live Search (unchanged) ---
         window.filterUsers = function() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
             const rows = document.querySelectorAll('#userTableBody tr');
@@ -719,7 +772,7 @@
             });
         };
 
-        // --- Dropdown Functions (unchanged) ---
+        // --- Dropdown Functions (unchanged, but actions inside will be blocked by isAdmin) ---
         function closeDropdown() {
             const dropdown = document.getElementById('globalDropdownMenu');
             dropdown.classList.remove('show');
@@ -748,6 +801,7 @@
             const rect = btn.getBoundingClientRect();
             const dropdown = document.getElementById('globalDropdownMenu');
 
+            // Build menu items (actions will be blocked by isAdmin checks in the called functions)
             let menuHtml = `
                 <button class="dropdown-item ${!isLinked ? 'disabled' : ''}" onclick="if(${isLinked}) resetDevice('${email}')">
                     <i class="ph ph-lock-key-open"></i> Unlock Device
@@ -808,7 +862,7 @@
             window.addEventListener('scroll', closeDropdown, { once: true });
         };
 
-        // --- Load Users (unchanged) ---
+        // --- Load Users (unchanged, but we will also disable the Manage button if not admin? We keep it enabled, but actions are blocked) ---
         window.loadUsers = async function() {
             const tableBody = document.getElementById('userTableBody');
             tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px;"><i class="ph ph-spinner-gap ph-spin" style="font-size: 2rem; color: var(--primary);"></i><br><br>Syncing Data...</td></tr>';
@@ -848,6 +902,7 @@
 
                     const displayId = isLinked ? `<span class="device-code">${escapeHtml(deviceId)}</span>` : "—";
                     
+                    // Manage button is always present but actions will be blocked if not admin
                     tableBody.innerHTML += `
                         <tr data-email="${escapeHtml(email)}" data-islinked="${isLinked}" data-status="${status}">
                             <td>${escapeHtml(email)}</td>
@@ -883,9 +938,13 @@
             });
         }
 
-        // --- Add Customer (unchanged) ---
+        // --- Add Customer (blocked if not admin) ---
         document.getElementById('createCustomerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!isAdmin) {
+                alert("Read-only mode: Creating new customers is disabled.");
+                return;
+            }
             const email = document.getElementById('newEmail').value;
             const password = document.getElementById('newPassword').value;
             const btn = document.getElementById('createBtn');
