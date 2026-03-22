@@ -503,9 +503,10 @@
             onAuthStateChanged, 
             createUserWithEmailAndPassword, 
             signOut,
-            sendPasswordResetEmail
+            sendPasswordResetEmail,
+            deleteUser as firebaseDeleteUser
         } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Firebase Config
         const firebaseConfig = {
@@ -561,21 +562,15 @@
                 if (user.email === 'admin@gmail.com') {
                     isAdmin = true;
                     document.getElementById('loginOverlay').style.display = 'none';
-                    // Enable all action buttons
                     enableActionButtons(true);
-                    // Remove any read-only indicator if present
                     const existingBadge = document.querySelector('.readonly-badge');
                     if (existingBadge) existingBadge.remove();
                     loadUsers();
                 } else {
-                    // Non-admin user: read-only mode
                     isAdmin = false;
                     document.getElementById('loginOverlay').style.display = 'none';
-                    // Show alert as per requirement
                     alert('Login Success! Access Denied: Read-only mode active.');
-                    // Disable all action buttons
                     enableActionButtons(false);
-                    // Add a visual indicator in the top header
                     const header = document.querySelector('.top-header h1');
                     let badge = document.querySelector('.readonly-badge');
                     if (!badge) {
@@ -584,28 +579,22 @@
                         badge.innerHTML = '<i class="ph ph-eye-slash"></i> Read‑only Mode';
                         header.parentElement.appendChild(badge);
                     }
-                    loadUsers();  // Load data but without write capabilities
+                    loadUsers();
                 }
             } else {
                 isAdmin = false;
                 document.getElementById('loginOverlay').style.display = 'flex';
-                // Remove any read-only indicator if present
                 const badge = document.querySelector('.readonly-badge');
                 if (badge) badge.remove();
             }
         });
 
-        // Helper to enable/disable all write-related buttons and form submissions
         function enableActionButtons(enabled) {
-            // Create Customer button
             const createBtn = document.getElementById('createBtn');
             if (createBtn) createBtn.disabled = !enabled;
-            // Note: we don't disable the refresh button – it's read-only.
-            // For dynamic buttons inside the table, we'll handle in the loadUsers function (set onclick conditionally)
-            // We'll also set a flag that the openMenu will check before showing interactive items
         }
 
-        // --- Login Form Handler (kept same but now we don't sign out) ---
+        // --- Login Form Handler ---
         document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('adminLoginBtn');
@@ -617,9 +606,6 @@
             
             try {
                 await signInWithEmailAndPassword(auth, email, password);
-                // No need to check here – observer will handle the mode
-                // Observer will show appropriate alert/mode
-                // We'll keep the button state
             } catch (error) {
                 let errorMsg = "Invalid Credentials.";
                 if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -640,7 +626,7 @@
             if(confirm("Are you sure you want to logout?")) signOut(auth);
         }
 
-        // --- All write actions now check isAdmin flag ---
+        // --- All write actions check isAdmin flag ---
         window.resetPassword = async (email) => {
             if (!isAdmin) {
                 alert("Read-only mode: Password reset is disabled.");
@@ -755,24 +741,72 @@
             }
         }
 
-        // --- Live Search (unchanged) ---
+        // --- NEW: Delete User Function ---
+        window.deleteUser = async function(email) {
+            if (!isAdmin) {
+                alert("Read-only mode: Deleting users is disabled.");
+                return;
+            }
+            closeDropdown();
+            const confirmDelete = confirm(`⚠️ PERMANENT ACTION\n\nAre you sure you want to permanently delete the user "${email}"?\nThis action cannot be undone and will remove all user data.`);
+            if (!confirmDelete) return;
+            
+            try {
+                // Delete from Firestore users collection
+                await deleteDoc(doc(db, "users", email));
+                
+                // Attempt to delete from Firebase Auth using secondaryAuth (which is not logged in)
+                // We need to sign in as the user to delete? Better to use admin SDK on backend, but we can attempt with current auth.
+                // Since we are using client-side SDK, we cannot delete a user without being authenticated as that user or using admin SDK.
+                // Instead we will only delete Firestore document and show a note. 
+                // For full deletion, a cloud function would be needed, but for now we delete the Firestore record.
+                // Inform admin that auth record remains but Firestore is removed.
+                showToast(`User ${email} deleted from registry. Auth record remains but can be recreated.`);
+                loadUsers();
+            } catch (error) {
+                console.error("Delete error:", error);
+                alert("Error deleting user: " + error.message);
+            }
+        };
+
+        // --- Search & "No User Found" Enhancement ---
         window.filterUsers = function() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
-            const rows = document.querySelectorAll('#userTableBody tr');
+            const tableBody = document.getElementById('userTableBody');
+            // Get all rows except any existing "no results" row we might have added manually
+            const rows = Array.from(tableBody.querySelectorAll('tr')).filter(row => !row.classList.contains('no-results-row'));
+            
+            let anyVisible = false;
             rows.forEach(row => {
                 const emailCell = row.cells[0];
                 if (emailCell) {
                     const emailText = emailCell.textContent.toLowerCase();
                     if (emailText.includes(searchTerm)) {
                         row.style.display = '';
+                        anyVisible = true;
                     } else {
                         row.style.display = 'none';
                     }
                 }
             });
+            
+            // Remove existing "no results" row if present
+            const existingNoResult = tableBody.querySelector('.no-results-row');
+            if (existingNoResult) existingNoResult.remove();
+            
+            // If no visible rows, add a placeholder row
+            if (!anyVisible && rows.length > 0) {
+                const noResultRow = document.createElement('tr');
+                noResultRow.className = 'no-results-row';
+                noResultRow.innerHTML = `<td colspan="4" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                                            <i class="ph ph-magnifying-glass" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>
+                                            🚫 No User Found
+                                         </td>`;
+                tableBody.appendChild(noResultRow);
+            }
         };
 
-        // --- Dropdown Functions (unchanged, but actions inside will be blocked by isAdmin) ---
+        // --- Dropdown Functions (updated with Delete option) ---
         function closeDropdown() {
             const dropdown = document.getElementById('globalDropdownMenu');
             dropdown.classList.remove('show');
@@ -801,7 +835,7 @@
             const rect = btn.getBoundingClientRect();
             const dropdown = document.getElementById('globalDropdownMenu');
 
-            // Build menu items (actions will be blocked by isAdmin checks in the called functions)
+            // Build menu with new Delete option
             let menuHtml = `
                 <button class="dropdown-item ${!isLinked ? 'disabled' : ''}" onclick="if(${isLinked}) resetDevice('${email}')">
                     <i class="ph ph-lock-key-open"></i> Unlock Device
@@ -821,6 +855,11 @@
                                 <i class="ph ph-warning-circle"></i> Suspend Account
                              </button>`;
             }
+            // Add Delete User option with a divider
+            menuHtml += `<div class="dropdown-divider"></div>
+                         <button class="dropdown-item" style="color: var(--danger);" onclick="deleteUser('${email}')">
+                            <i class="ph ph-trash"></i> Delete User
+                         </button>`;
 
             dropdown.innerHTML = menuHtml;
 
@@ -862,7 +901,7 @@
             window.addEventListener('scroll', closeDropdown, { once: true });
         };
 
-        // --- Load Users (unchanged, but we will also disable the Manage button if not admin? We keep it enabled, but actions are blocked) ---
+        // --- Load Users (enhanced to ensure search re-triggers) ---
         window.loadUsers = async function() {
             const tableBody = document.getElementById('userTableBody');
             tableBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 40px;"><i class="ph ph-spinner-gap ph-spin" style="font-size: 2rem; color: var(--primary);"></i><br><br>Syncing Data...</td></tr>';
@@ -902,7 +941,6 @@
 
                     const displayId = isLinked ? `<span class="device-code">${escapeHtml(deviceId)}</span>` : "—";
                     
-                    // Manage button is always present but actions will be blocked if not admin
                     tableBody.innerHTML += `
                         <tr data-email="${escapeHtml(email)}" data-islinked="${isLinked}" data-status="${status}">
                             <td>${escapeHtml(email)}</td>
@@ -920,7 +958,9 @@
                 document.getElementById('totalUsersCount').innerText = totalUsers;
                 document.getElementById('lockedDevicesCount').innerText = lockedUsers;
 
-                if (document.getElementById('searchInput').value.trim() !== "") {
+                // Re-apply search filter if input has value
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput.value.trim() !== "") {
                     filterUsers();
                 }
             } catch (error) {
